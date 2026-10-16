@@ -29,25 +29,25 @@ func run(args []string) error {
 	}
 	eventKeys := slices.Sorted(maps.Keys(events))
 
-	if len(args) < 2 {
+	if len(args) == 0 {
 		return errors.New(
 			"usage: mystally add <creator> <event>\nusage: mystally list",
 		)
 	}
 
-	switch args[1] {
+	switch args[0] {
 	case "add":
-		if len(args) != 4 {
+		if len(args) != 3 {
 			return errors.New("usage: mystally add <creator> <event>")
 		}
 
-		if strings.Contains(args[2], ",") {
+		if strings.Contains(args[1], ",") {
 			return errors.New("creator name must not contain a comma")
 		}
 
-		_, ok := events[args[3]]
+		_, ok := events[args[2]]
 		if !ok {
-			return fmt.Errorf("usage: mystally add <creator> <event>\nunknown event %q; choose one of: %s", args[3], strings.Join(eventKeys, ", "))
+			return fmt.Errorf("usage: mystally add <creator> <event>\nunknown event %q; choose one of: %s", args[2], strings.Join(eventKeys, ", "))
 		}
 
 		err := addCmd(args)
@@ -55,7 +55,7 @@ func run(args []string) error {
 			return err
 		}
 	case "list":
-		if len(args) != 2 {
+		if len(args) != 1 {
 			return errors.New("usage: mystally list")
 		}
 
@@ -79,7 +79,7 @@ func addCmd(args []string) error {
 	}
 	defer file.Close()
 
-	line := strings.Join([]string{args[2], args[3], time.Now().Format(time.RFC3339)}, ",")
+	line := strings.Join([]string{args[1], args[2], time.Now().Format(time.RFC3339)}, ",")
 	_, err = file.WriteString(line + "\n")
 
 	return err

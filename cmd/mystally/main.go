@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -9,7 +10,16 @@ import (
 	"time"
 )
 
+const eventsFile = "events.txt"
+
 func main() {
+	if err := run(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run(args []string) error {
 	events := map[string]int{
 		"view":    1,
 		"like":    5,
@@ -18,64 +28,52 @@ func main() {
 		"share":   50,
 	}
 	eventKeys := slices.Sorted(maps.Keys(events))
-	args := os.Args
-	fileName := "events.txt"
 
 	if len(args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: mystally add <creator> <event>")
-		fmt.Fprintln(os.Stderr, "usage: mystally list")
-		os.Exit(1)
+		return errors.New(
+			"usage: mystally add <creator> <event>\nusage: mystally list",
+		)
 	}
 
 	switch args[1] {
 	case "add":
 		if len(args) != 4 {
-			fmt.Fprintln(os.Stderr, "usage: mystally add <creator> <event>")
-			os.Exit(1)
+			return errors.New("usage: mystally add <creator> <event>")
 		}
 
 		if strings.Contains(args[2], ",") {
-			fmt.Fprintln(os.Stderr, "creator name must not contain a comma")
-			os.Exit(1)
+			return errors.New("creator name must not contain a comma")
 		}
 
 		_, ok := events[args[3]]
 		if !ok {
-			fmt.Fprintln(os.Stderr, "usage: mystally add <creator> <event>")
-			fmt.Fprintf(os.Stderr, "unknown event %q; choose one of: %s\n", args[3], strings.Join(eventKeys, ", "))
-			os.Exit(1)
+			return fmt.Errorf("usage: mystally add <creator> <event>\nunknown event %q; choose one of: %s", args[3], strings.Join(eventKeys, ", "))
 		}
 
-		err := add(args, fileName)
+		err := addCmd(args)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+			return err
 		}
 	case "list":
 		if len(args) != 2 {
-			fmt.Fprintln(os.Stderr, "usage: mystally list")
-			os.Exit(1)
+			return errors.New("usage: mystally list")
 		}
 
-		content, err := list(fileName)
+		err := listCmd()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		for _, line := range content {
-			if line != "" {
-				fmt.Println(line)
-			}
+			return err
 		}
 	default:
-		fmt.Fprintln(os.Stderr, "usage: mystally add <creator> <event>")
-		fmt.Fprintln(os.Stderr, "usage: mystally list")
-		os.Exit(1)
+		return errors.New(
+			"usage: mystally add <creator> <event>\nusage: mystally list",
+		)
 	}
+
+	return nil
 }
 
-func add(args []string, fileName string) error {
-	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+func addCmd(args []string) error {
+	file, err := os.OpenFile(eventsFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -87,12 +85,18 @@ func add(args []string, fileName string) error {
 	return err
 }
 
-func list(fileName string) ([]string, error) {
-	content, err := os.ReadFile(fileName)
+func listCmd() error {
+	content, err := os.ReadFile(eventsFile)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	lines := strings.Split(string(content), "\n")
 
-	return lines, nil
+	lines := strings.SplitSeq(string(content), "\n")
+	for line := range lines {
+		if line != "" {
+			fmt.Println(line)
+		}
+	}
+
+	return nil
 }

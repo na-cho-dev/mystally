@@ -8,6 +8,9 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/na-cho-dev/mystally/internal/ledger"
+	"github.com/na-cho-dev/mystally/internal/store"
 )
 
 const eventsFile = "events.json"
@@ -73,39 +76,41 @@ func run(args []string) error {
 	return nil
 }
 
-func createLedger() (*Ledger, error) {
-	events, err := loadEvents(eventsFile)
-	if err != nil {
+func createLedger() (*ledger.Ledger, error) {
+	store := store.NewFileStore(eventsFile)
+	ldg := ledger.NewLedger(store)
+	if err := ldg.Load(); err != nil {
 		return nil, err
 	}
-	return newLedger(events), nil
+
+	return ldg, nil
 }
 
 func addCmd(args []string) error {
-	ledger, err := createLedger()
+	ldg, err := createLedger()
 	if err != nil {
 		return err
 	}
 
-	parsedType, err := ParseEventType(args[2])
+	parsedType, err := ledger.ParseEventType(args[2])
 	if err != nil {
 		return err
 	}
 
-	newEvent := Event{Creator: args[1], Type: parsedType, At: time.Now()}
-	ledger.Add(newEvent)
+	newEvent := ledger.Event{Creator: args[1], Type: parsedType, At: time.Now()}
+	err = ldg.Add(newEvent)
 
-	return saveEvents(eventsFile, ledger.Events())
+	return err
 }
 
 func listCmd() error {
-	ledger, err := createLedger()
+	ldg, err := createLedger()
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("%-15s %-15s %-15s %-15s\n", "ID", "CREATOR", "TYPE", "TIME")
-	for _, ev := range ledger.Events() {
+	for _, ev := range ldg.Events() {
 		fmt.Printf("%-15d %-15s %-15s %-15s\n", ev.ID, ev.Creator, ev.Type, ev.At.Format(time.DateTime))
 	}
 
@@ -113,23 +118,23 @@ func listCmd() error {
 }
 
 func balanceCmd(creator string) error {
-	ledger, err := createLedger()
+	ldg, err := createLedger()
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("%-15s %-15s\n", creator, ledger.BalanceFor(creator))
+	fmt.Printf("%-15s %-15s\n", creator, ldg.BalanceFor(creator))
 
 	return nil
 }
 
 func allBalanceCmd() error {
-	ledger, err := createLedger()
+	ldg, err := createLedger()
 	if err != nil {
 		return err
 	}
 
-	b := ledger.Balances()
+	b := ldg.Balances()
 	for _, name := range slices.Sorted(maps.Keys(b)) {
 		fmt.Printf("%-15s %-15s\n", name, b[name])
 	}
